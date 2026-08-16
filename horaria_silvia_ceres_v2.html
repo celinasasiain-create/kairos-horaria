@@ -5061,7 +5061,7 @@ async function llamarIA(apiKey,btn,btnLabel){
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
-        max_tokens:1800,
+        max_tokens:4000,
         system:SISTEMA_IA,
         messages:chatHistory
       })
@@ -5070,7 +5070,11 @@ async function llamarIA(apiKey,btn,btnLabel){
     if(d.error){
       spinDiv.querySelector('.msg-body').textContent='Error: '+d.error.message;
     } else {
-      const txt=d.content[0].text;
+      let txt=d.content[0].text;
+      // Detectar si la respuesta fue cortada por límite de tokens
+      if(d.stop_reason==='max_tokens'){
+        txt += '\n\n⚠ _[Respuesta cortada por límite de longitud. Escribí "continuá" para que Kairós complete el análisis.]_';
+      }
       chatHistory.push({role:'assistant',content:txt});
       spinDiv.remove();
       renderChat();
