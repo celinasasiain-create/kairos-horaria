@@ -4598,15 +4598,24 @@ function checkRadical(data){
     tipo='warn';
   }
 
-  // ── VÍA COMBUSTA: afecta solo a la Luna (fuente clásica: Bonatti, Al Biruni, Estadella) ──
+  // ── VÍA COMBUSTA: afecta solo a la Luna — condición de NO RADICABILIDAD ──
   // 15° Libra – 15° Escorpio = 195° – 225°. Excepción: Spica ~24° Libra (203.7°)
   const lunaVC = planets.Luna.lon;
   if(lunaVC >= 195 && lunaVC < 225){
     if(Math.abs(lunaVC - 203.7) <= 1){
       msgs.push('✦ Luna cerca de <strong>Spica</strong> (24° Libra): excepción positiva a la Vía Combusta. La estrella protege a la Luna.');
     } else {
-      msgs.push('⚠ <strong>Luna en VÍA COMBUSTA</strong> (15° Libra – 15° Escorpio): la Luna está debilitada como significadora universal. Los eventos pueden cambiar de forma brusca e impredecible.');
-      if(tipo !== 'warn') tipo = 'caution';
+      // NO RADICAL — bloquear análisis igual que Saturno en Casa VII
+      const banner=document.getElementById('radicalBanner');
+      banner.className='radical radical-warn';
+      banner.innerHTML=
+        '<strong>⛔ CARTA NO RADICAL — Luna en Vía Combusta</strong><br><br>' +
+        `La Luna se encuentra en <strong>${fmtFull(lunaVC)}</strong>, dentro de la Vía Combusta (15° Libra – 15° Escorpio). ` +
+        'Esta zona priva a la Luna de su luz y capacidad de actuar como significadora universal. ' +
+        'La carta <strong>no puede interpretarse</strong> con fiabilidad en estas condiciones.<br><br>' +
+        '↩ Aguardá a que la Luna salga de esta zona para levantar la carta.';
+      data._noRadical = 'luna_via_combusta';
+      return;
     }
   }
 
@@ -4756,8 +4765,31 @@ function buildCartaText(data){
     t+=`  ${p}: ${fmtFull(pl.lon)} | Casa ${h}${d?' | '+d:''}${pl.retro?' | RETRÓGRADO':''}\n`;
   });
 
-  // ASPECTOS ENTRE TODOS LOS SIGNIFICADORES
-  const aspectos=calcAspectos(planets);
+  // CONDICIONES DE RADICABILIDAD — incluir siempre en el contexto de la IA
+  t += `\nCONDICIONES DE RADICABILIDAD:\n`;
+  const ascDeg = asc % 30;
+  t += `  Ascendente: ${fmtFull(asc)} (${ascDeg.toFixed(1)}° del signo) — `;
+  if(ascDeg < 3) t += `PREMATURO (0°-3°): la pregunta aún no tiene forma.\n`;
+  else if(ascDeg >= 27) t += `TARDÍO (27°-30°): el asunto ya está resuelto o decidido.\n`;
+  else t += `válido.\n`;
+  // Saturno en casas angulares
+  const satH = getHouse(planets.Saturno.lon, cusps);
+  if(satH === 7) t += `  Saturno en Casa VII: carta NO RADICAL — el astrólogo no está claro.\n`;
+  else if(satH === 1 && (planets.Saturno.lon % 30) < 10) t += `  Saturno en primeros 10° de Casa I: la pregunta puede no ser veraz.\n`;
+  else t += `  Saturno: fuera de casas angulares críticas.\n`;
+  // Vía Combusta
+  const lunaLonVC = planets.Luna.lon % 360;
+  if(lunaLonVC >= 195 && lunaLonVC < 225) {
+    if(Math.abs(lunaLonVC - 203.7) <= 1) {
+      t += `  Luna en VÍA COMBUSTA pero cerca de SPICA (24° Libra): excepción positiva, Spica protege a la Luna.\n`;
+    } else {
+      t += `  ⚠ LUNA EN VÍA COMBUSTA (${fmtFull(planets.Luna.lon)}): la Luna se encuentra entre 15° Libra y 15° Escorpio, zona de debilitamiento extremo. Los eventos pueden tomar rumbos inesperados y bruscos. MENCIONÁ ESTO EXPLÍCITAMENTE en tu análisis y evaluá su impacto en la lectura.\n`;
+    }
+  } else {
+    t += `  Luna fuera de Vía Combusta: sin impedimento por esta causa.\n`;
+  }
+
+
   t+=`\nASPECTOS ENTRE SIGNIFICADORES:\n`;
   if(aspectos.length===0){
     t+=`  (No se encontraron aspectos entre los significadores principales)\n`;
@@ -4866,6 +4898,7 @@ RADICABILIDAD — La carta es válida si:
 • Ascendente entre 3° y 27° del signo.
 • Saturno NO en Casa I (primeros 10°) ni en Casa VII (salvo excepciones).
 • Luna fuera de Vía Combusta (15° Libra - 15° Escorpio), excepto Spica (24° Libra).
+• Si la Luna ESTÁ en Vía Combusta, mencionalo SIEMPRE en el análisis, explicá qué significa para este caso concreto y cómo afecta la interpretación. No lo omitas aunque la carta sea válida por otras razones.
 • Si la carta no es radical, advertilo claramente antes de analizar.
 
 SIGNIFICADORES:
@@ -4988,6 +5021,10 @@ async function interpretarIA(){
   // ── Verificar radicabilidad antes de proceder ──
   if(cartaData._noRadical==='saturno_casa7'){
     alert('⛔ Carta no radical: Saturno está en Casa VII.\n\nKairós no puede interpretar esta carta porque el astrólogo (la app) no está claro en este momento.\n\nExcepción: si sos vos quien pregunta para sí mismo, podés proceder bajo tu propio criterio.');
+    return;
+  }
+  if(cartaData._noRadical==='luna_via_combusta'){
+    alert('⛔ Carta no radical: la Luna está en Vía Combusta (15° Libra – 15° Escorpio).\n\nLa Luna no puede actuar como significadora universal en esta zona. La carta no puede interpretarse con fiabilidad.\n\nAguardá a que la Luna salga de esta zona para hacer la consulta.');
     return;
   }
   const btn=document.getElementById('btnIA');
