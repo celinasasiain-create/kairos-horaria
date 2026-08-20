@@ -5086,23 +5086,20 @@ async function preguntarSeguimiento(){
 async function llamarIA(apiKey,btn,btnLabel){
   const historial=document.getElementById('chatHistorial');
   historial.style.display='block';
-  // Crear div de respuesta vacío — se irá llenando con el stream
   const msgDiv=document.createElement('div');
   msgDiv.className='chat-msg assistant';
-  const labelEl=document.createElement('div');
-  labelEl.className='msg-label';
-  labelEl.textContent='Kairós · IA';
-  const bodyEl=document.createElement('div');
-  bodyEl.className='msg-body';
-  bodyEl.innerHTML='<span class="spin"></span> Analizando…';
-  msgDiv.appendChild(labelEl);
-  msgDiv.appendChild(bodyEl);
+  msgDiv.innerHTML='<div class="msg-label">Kairós · IA</div><div class="msg-body" id="_kairosBody"><span class="spin"></span> Analizando la carta… (puede tardar 20-30 segundos)</div>';
   historial.appendChild(msgDiv);
   historial.scrollTop=historial.scrollHeight;
+  const bodyEl=document.getElementById('_kairosBody');
 
   try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),90000); // 90 segundos máximo
+
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
+      signal:controller.signal,
       headers:{
         'Content-Type':'application/json',
         'x-api-key':apiKey,
@@ -5112,54 +5109,30 @@ async function llamarIA(apiKey,btn,btnLabel){
       body:JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:4000,
-        stream:true,
         system:SISTEMA_IA,
         messages:chatHistory
       })
     });
+    clearTimeout(timeout);
 
-    if(!resp.ok){
-      const err=await resp.json();
-      bodyEl.textContent='Error: '+(err.error?.message||resp.statusText);
-      btn.disabled=false;btn.innerHTML=btnLabel;
-      return;
-    }
-
-    // Leer stream SSE
-    const reader=resp.body.getReader();
-    const decoder=new TextDecoder();
-    let fullText='';
-    let buffer='';
-    bodyEl.textContent='';
-
-    while(true){
-      const {done,value}=await reader.read();
-      if(done) break;
-      buffer+=decoder.decode(value,{stream:true});
-      const lines=buffer.split('\n');
-      buffer=lines.pop(); // última línea puede estar incompleta
-      for(const line of lines){
-        if(!line.startsWith('data: ')) continue;
-        const data=line.slice(6).trim();
-        if(data==='[DONE]') break;
-        try{
-          const evt=JSON.parse(data);
-          if(evt.type==='content_block_delta'&&evt.delta?.type==='text_delta'){
-            fullText+=evt.delta.text;
-            bodyEl.textContent=fullText;
-            historial.scrollTop=historial.scrollHeight;
-          } else if(evt.type==='message_delta'&&evt.delta?.stop_reason==='max_tokens'){
-            fullText+='\n\n⚠ [Respuesta cortada. Escribí "continuá" para que Kairós complete el análisis.]';
-            bodyEl.textContent=fullText;
-          }
-        }catch(e){}
+    const d=await resp.json();
+    if(d.error){
+      bodyEl.textContent='Error: '+d.error.message;
+    } else {
+      let txt=d.content[0].text;
+      if(d.stop_reason==='max_tokens'){
+        txt+='\n\n⚠ [Respuesta cortada. Escribí "continuá" para que Kairós complete el análisis.]';
       }
+      chatHistory.push({role:'assistant',content:txt});
+      msgDiv.remove();
+      renderChat();
     }
-
-    chatHistory.push({role:'assistant',content:fullText});
-
   }catch(e){
-    bodyEl.textContent='Error de conexión: '+e.message;
+    if(e.name==='AbortError'){
+      bodyEl.textContent='⚠ La respuesta tardó demasiado. Verificá tu conexión y volvé a intentar.';
+    } else {
+      bodyEl.textContent='Error: '+e.message;
+    }
   }
   btn.disabled=false;btn.innerHTML=btnLabel;
   historial.scrollTop=historial.scrollHeight;
