@@ -4791,6 +4791,7 @@ function buildCartaText(data){
 
 
   t+=`\nASPECTOS ENTRE SIGNIFICADORES:\n`;
+  const aspectos=calcAspectos(planets);
   if(aspectos.length===0){
     t+=`  (No se encontraron aspectos entre los significadores principales)\n`;
   } else {
