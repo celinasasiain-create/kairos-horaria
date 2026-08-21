@@ -5030,8 +5030,16 @@ async function interpretarIA(){
   }
   const btn=document.getElementById('btnIA');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Analizando…';
+  let carta='';
+  try{
+    const preguntaTxt=cartaData.meta?.pregunta||'';
+    carta=buildCartaText(cartaData);
+  }catch(e){
+    btn.disabled=false;btn.innerHTML='◈ Interpretar con IA';
+    alert('Error preparando la carta: '+e.message);
+    return;
+  }
   const preguntaTxt=cartaData.meta?.pregunta||'';
-  const carta=buildCartaText(cartaData);
   const userMsg=`PREGUNTA HORARIA: "${preguntaTxt}"\n\n${carta}`;
   chatHistory=[{role:'user',content:userMsg}];
   preguntasHechas=0;actualizarContador();
