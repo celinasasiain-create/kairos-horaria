@@ -4565,27 +4565,31 @@ function mostrar(data){
 
 // ── RADICABILIDAD ──
 function isLunaVacia(planets){
-  // Detectar si la Luna está Vacía de Curso:
-  // no hace ningún aspecto ptolemaico aplicativo antes de cambiar de signo
+  // Luna Vacía de Curso: no hace ningún aspecto ptolemaico aplicativo
+  // antes de cambiar de signo (Silvia Ceres / tradición clásica)
   const luna = planets.Luna;
-  const lunaSign = Math.floor(luna.lon / 30);
+  const gradosRestantes = 30 - (luna.lon % 30);  // grados hasta el próximo signo
   const ASPECTOS = [[0,8],[60,6],[90,8],[120,8],[180,8]];
   const otros = ['Sol','Mercurio','Venus','Marte','Júpiter','Saturno'];
+
   for(const p of otros){
     const pl = planets[p]; if(!pl) continue;
     for(const [deg, orb] of ASPECTOS){
+      // Dos posibles puntos de aspecto exacto desde la posición del planeta
       for(const base of [pl.lon - deg, pl.lon + deg]){
         const target = ((base % 360) + 360) % 360;
+        // Distancia que le falta a la Luna para llegar al aspecto exacto (en sentido directo)
         const distFwd = (target - luna.lon + 360) % 360;
-        // Aplicativo dentro del signo actual (distFwd < grados restantes en el signo)
-        const gradosRestantes = 30 - (luna.lon % 30);
-        if(distFwd > 0 && distFwd <= gradosRestantes && distFwd <= orb + gradosRestantes){
-          return false; // tiene al menos un aspecto aplicativo
+        // El aspecto es aplicativo si:
+        // 1. La Luna aún no llegó (distFwd > 0)
+        // 2. El punto exacto está dentro del signo actual (distFwd <= gradosRestantes)
+        if(distFwd > 0 && distFwd <= gradosRestantes){
+          return false; // tiene al menos un aspecto aplicativo en el signo
         }
       }
     }
   }
-  return true; // ningún aspecto aplicativo antes de cambiar de signo
+  return true; // ningún aspecto aplicativo antes de cambiar de signo → Vacía de Curso
 }
 
 function checkRadical(data){
