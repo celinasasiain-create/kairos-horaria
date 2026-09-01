@@ -4564,6 +4564,30 @@ function mostrar(data){
 }
 
 // ── RADICABILIDAD ──
+function isLunaVacia(planets){
+  // Detectar si la Luna está Vacía de Curso:
+  // no hace ningún aspecto ptolemaico aplicativo antes de cambiar de signo
+  const luna = planets.Luna;
+  const lunaSign = Math.floor(luna.lon / 30);
+  const ASPECTOS = [[0,8],[60,6],[90,8],[120,8],[180,8]];
+  const otros = ['Sol','Mercurio','Venus','Marte','Júpiter','Saturno'];
+  for(const p of otros){
+    const pl = planets[p]; if(!pl) continue;
+    for(const [deg, orb] of ASPECTOS){
+      for(const base of [pl.lon - deg, pl.lon + deg]){
+        const target = ((base % 360) + 360) % 360;
+        const distFwd = (target - luna.lon + 360) % 360;
+        // Aplicativo dentro del signo actual (distFwd < grados restantes en el signo)
+        const gradosRestantes = 30 - (luna.lon % 30);
+        if(distFwd > 0 && distFwd <= gradosRestantes && distFwd <= orb + gradosRestantes){
+          return false; // tiene al menos un aspecto aplicativo
+        }
+      }
+    }
+  }
+  return true; // ningún aspecto aplicativo antes de cambiar de signo
+}
+
 function checkRadical(data){
   const{asc,planets,cusps}=data;
   const ascDeg=asc%30;
@@ -4617,6 +4641,23 @@ function checkRadical(data){
       data._noRadical = 'luna_via_combusta';
       return;
     }
+  }
+
+  // ── LUNA VACÍA DE CURSO (Silvia Ceres) ──
+  // Sin aspectos aplicativos antes de cambiar de signo → nada sucederá
+  if(isLunaVacia(planets)){
+    const bannerVC=document.getElementById('radicalBanner');
+    bannerVC.className='radical radical-warn';
+    bannerVC.innerHTML=
+      '<strong>⛔ LUNA VACÍA DE CURSO</strong><br><br>' +
+      'La Luna no realiza ningún aspecto aplicativo antes de cambiar de signo. ' +
+      'Según Silvia Ceres: <strong>nada de lo planteado sucederá</strong>. ' +
+      'El asunto no tiene desarrollo posible en este momento.<br><br>' +
+      '<em>Excepción:</em> si el consultante teme un resultado negativo (ej. "¿Me van a despedir?"), ' +
+      'la Vacía de Curso puede ser una respuesta favorable — nada malo ocurrirá.<br><br>' +
+      '↩ Esta carta puede mostrarse al consultante como respuesta en sí misma.';
+    data._noRadical = 'luna_vacia_curso';
+    return;
   }
 
   const banner=document.getElementById('radicalBanner');
@@ -5022,6 +5063,10 @@ async function interpretarIA(){
   // ── Verificar radicabilidad antes de proceder ──
   if(cartaData._noRadical==='saturno_casa7'){
     alert('⛔ Carta no radical: Saturno está en Casa VII.\n\nKairós no puede interpretar esta carta porque el astrólogo (la app) no está claro en este momento.\n\nExcepción: si sos vos quien pregunta para sí mismo, podés proceder bajo tu propio criterio.');
+    return;
+  }
+  if(cartaData._noRadical==='luna_vacia_curso'){
+    alert('⛔ Luna Vacía de Curso.\n\nLa Luna no hace aspectos antes de cambiar de signo. Según Silvia Ceres: nada de lo planteado sucederá.\n\nExcepción: si el consultante teme algo negativo, la Vacía de Curso es la respuesta — nada malo ocurrirá.');
     return;
   }
   if(cartaData._noRadical==='luna_via_combusta'){
