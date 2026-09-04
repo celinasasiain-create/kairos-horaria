@@ -4626,9 +4626,25 @@ function checkRadical(data){
     tipo='warn';
   }
 
-  // ── VÍA COMBUSTA: afecta solo a la Luna — condición de NO RADICABILIDAD ──
+  // ── VÍA COMBUSTA: Ascendente O Luna (Silvia Ceres) — condición de NO RADICABILIDAD ──
   // 15° Libra – 15° Escorpio = 195° – 225°. Excepción: Spica ~24° Libra (203.7°)
-  const lunaVC = planets.Luna.lon;
+  const lunaVC = planets.Luna.lon % 360;
+  const ascVC  = asc % 360;
+
+  // Verificar Ascendente en Vía Combusta
+  if(ascVC >= 195 && ascVC < 225 && Math.abs(ascVC - 203.7) > 1){
+    const bannerAVC=document.getElementById('radicalBanner');
+    bannerAVC.className='radical radical-warn';
+    bannerAVC.innerHTML=
+      '<strong>⛔ CARTA NO RADICAL — Ascendente en Vía Combusta</strong><br><br>' +
+      `El Ascendente se encuentra en <strong>${fmtFull(ascVC)}</strong>, dentro de la Vía Combusta (15° Libra – 15° Escorpio). ` +
+      'Los acontecimientos cambiarán de forma brusca e impredecible. La carta no es confiable.<br><br>' +
+      '↩ Aguardá a que el Ascendente salga de esta zona para levantar la carta.';
+    data._noRadical = 'asc_via_combusta';
+    return;
+  }
+
+  // Verificar Luna en Vía Combusta
   if(lunaVC >= 195 && lunaVC < 225){
     if(Math.abs(lunaVC - 203.7) <= 1){
       msgs.push('✦ Luna cerca de <strong>Spica</strong> (24° Libra): excepción positiva a la Vía Combusta. La estrella protege a la Luna.');
@@ -4649,6 +4665,7 @@ function checkRadical(data){
 
   // ── LUNA VACÍA DE CURSO (Silvia Ceres) ──
   // Sin aspectos aplicativos antes de cambiar de signo → nada sucederá
+  // Esta condición ES en sí misma la respuesta. Puede ser favorable.
   if(isLunaVacia(planets)){
     const bannerVC=document.getElementById('radicalBanner');
     bannerVC.className='radical radical-warn';
@@ -4656,10 +4673,12 @@ function checkRadical(data){
       '<strong>⛔ LUNA VACÍA DE CURSO</strong><br><br>' +
       'La Luna no realiza ningún aspecto aplicativo antes de cambiar de signo. ' +
       'Según Silvia Ceres: <strong>nada de lo planteado sucederá</strong>. ' +
-      'El asunto no tiene desarrollo posible en este momento.<br><br>' +
-      '<em>Excepción:</em> si el consultante teme un resultado negativo (ej. "¿Me van a despedir?"), ' +
-      'la Vacía de Curso puede ser una respuesta favorable — nada malo ocurrirá.<br><br>' +
-      '↩ Esta carta puede mostrarse al consultante como respuesta en sí misma.';
+      'Esta condición es en sí misma la respuesta a la pregunta.<br><br>' +
+      '<strong>¿Temías un resultado negativo?</strong> (ej. "¿Me van a despedir?", "¿Va a pasar algo malo?") ' +
+      '→ La Vacía de Curso es una respuesta <em>favorable</em>: nada malo ocurrirá.<br><br>' +
+      '<strong>¿Esperabas un resultado positivo?</strong> (ej. "¿Me darán el trabajo?", "¿Se concretará?") ' +
+      '→ La Vacía de Curso indica que el asunto no prosperará en este momento.<br><br>' +
+      '↩ Podés mostrarle al consultante esta respuesta directamente.';
     data._noRadical = 'luna_vacia_curso';
     return;
   }
@@ -4746,6 +4765,9 @@ const VEL_MEDIA={Sol:0.9856,Luna:13.176,Mercurio:1.38,Venus:1.20,Marte:0.524,
 
 function calcAspectos(planets){
   // Devuelve array de {p1, p2, aspecto, orbe, tipo:'APLICATIVO'|'separativo'}
+  // REGLA CLAVE (Silvia Ceres / Estadella): solo cuentan aspectos que se perfeccionan
+  // DENTRO del signo que ocupa el planeta más rápido. Si el aspecto exacto cae
+  // después del cambio de signo, no cuenta.
   const SIGPLANETS=['Sol','Luna','Mercurio','Venus','Marte','Júpiter','Saturno'];
   const ASPECTOS=[[0,8,'Conjunción'],[60,6,'Sextil'],[90,8,'Cuadratura'],[120,8,'Trígono'],[180,8,'Oposición']];
   const resultados=[];
@@ -4754,35 +4776,37 @@ function calcAspectos(planets){
       const n1=SIGPLANETS[i], n2=SIGPLANETS[j];
       const p1=planets[n1], p2=planets[n2];
       if(!p1||!p2) continue;
-      // Diferencia angular p2 - p1 (en el zodíaco)
       let diff=(p2.lon - p1.lon + 360) % 360;
-      if(diff>180) diff=360-diff; // distancia mínima
+      if(diff>180) diff=360-diff;
       for(const [deg,orb,nm] of ASPECTOS){
         const dd=Math.abs(diff-deg);
         if(dd<=orb){
           // Determinar aplicativo: el más rápido se acerca al más lento
           const v1=(VEL_MEDIA[n1]||0)*(p1.retro?-1:1);
           const v2=(VEL_MEDIA[n2]||0)*(p2.retro?-1:1);
-          // Velocidad relativa de p1 respecto a p2
           const vRel=v1-v2;
-          // Diferencia real (con signo, para saber dirección)
           let diffSig=(p2.lon - p1.lon + 360) % 360;
           if(diffSig>180) diffSig=diffSig-360;
-          // Es aplicativo si el más rápido se acerca al ángulo exacto
-          // p1 aplica a p2 si vRel > 0 y p1 está "detrás" del ángulo exacto
-          // O si vRel < 0 y p1 está "adelante"
-          let aplicativo=false;
-          const exactAngle=deg; // ángulo objetivo
-          // Distancia desde p1 al punto exacto: 
           const distToExact=diffSig - (diffSig>=0 ? deg : -deg);
-          aplicativo=(vRel>0 && distToExact>0) || (vRel<0 && distToExact<0);
+          const aplicativo=(vRel>0 && distToExact>0) || (vRel<0 && distToExact<0);
+
+          // VERIFICAR que el aspecto exacto cae dentro del signo del planeta más rápido
+          // El planeta más rápido es el de mayor |velocidad|
+          const masRapido = Math.abs(v1) >= Math.abs(v2) ? p1 : p2;
+          const gradosRestantes = 30 - (masRapido.lon % 30);
+          // Grados que le faltan para el aspecto exacto
+          const gradosAlExacto = Math.abs(distToExact);
+          // Si es aplicativo y los grados al exacto > grados restantes en el signo → no cuenta
+          if(aplicativo && gradosAlExacto > gradosRestantes){
+            continue; // aspecto se perfecciona fuera del signo → no cuenta
+          }
+
           resultados.push({p1:n1,p2:n2,aspecto:nm,orbe:dd.toFixed(1),
             tipo:aplicativo?'APLICATIVO':'separativo'});
         }
       }
     }
   }
-  // Ordenar: primero aplicativos, luego por orbe
   resultados.sort((a,b)=>{
     if(a.tipo!==b.tipo) return a.tipo==='APLICATIVO'?-1:1;
     return parseFloat(a.orbe)-parseFloat(b.orbe);
@@ -4943,8 +4967,9 @@ FUNDAMENTOS DEL MÉTODO SILVIA CERES:
 RADICABILIDAD — La carta es válida si:
 • Ascendente entre 3° y 27° del signo.
 • Saturno NO en Casa I (primeros 10°) ni en Casa VII (salvo excepciones).
-• Luna fuera de Vía Combusta (15° Libra - 15° Escorpio), excepto Spica (24° Libra).
-• Si la Luna ESTÁ en Vía Combusta, mencionalo SIEMPRE en el análisis, explicá qué significa para este caso concreto y cómo afecta la interpretación. No lo omitas aunque la carta sea válida por otras razones.
+• Ascendente o Luna fuera de Vía Combusta (15° Libra - 15° Escorpio), excepto Spica (24° Libra).
+• Si la Luna ESTÁ en Vía Combusta, la carta es NO RADICAL. El sistema ya lo detecta automáticamente.
+• IMPORTANTE: Los aspectos solo cuentan si se perfeccionan DENTRO del signo del planeta más rápido (Silvia Ceres y Estadella). Un aspecto que se perfecciona después del cambio de signo NO cuenta.
 • Si la carta no es radical, advertilo claramente antes de analizar.
 
 SIGNIFICADORES:
@@ -5070,7 +5095,11 @@ async function interpretarIA(){
     return;
   }
   if(cartaData._noRadical==='luna_vacia_curso'){
-    alert('⛔ Luna Vacía de Curso.\n\nLa Luna no hace aspectos antes de cambiar de signo. Según Silvia Ceres: nada de lo planteado sucederá.\n\nExcepción: si el consultante teme algo negativo, la Vacía de Curso es la respuesta — nada malo ocurrirá.');
+    alert('⛔ Luna Vacía de Curso — esta condición ES la respuesta.\n\n"Nada de lo planteado sucederá" (Silvia Ceres).\n\n• Si el consultante TEMÍA algo negativo → respuesta FAVORABLE: nada malo ocurrirá.\n• Si el consultante ESPERABA algo positivo → el asunto no prosperará ahora.\n\nNo es necesario pedir análisis a la IA. La Vacía de Curso es la respuesta directa.');
+    return;
+  }
+  if(cartaData._noRadical==='asc_via_combusta'){
+    alert('⛔ Carta no radical: el Ascendente está en Vía Combusta (15° Libra – 15° Escorpio).\n\nLos acontecimientos cambiarán de forma brusca e impredecible. Según Silvia Ceres, la carta no es confiable.\n\nAguardá a que el Ascendente salga de esta zona.');
     return;
   }
   if(cartaData._noRadical==='luna_via_combusta'){
